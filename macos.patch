@@ -65,3 +65,49 @@ index d3a5ce9..fd1c6c9 100644
          };
        });
  
+diff --git a/client/intro-shinji/intro-cg.js b/client/intro-shinji/intro-cg.js
+index a504335..6416528 100644
+--- a/client/intro-shinji/intro-cg.js
++++ b/client/intro-shinji/intro-cg.js
+@@ -16,11 +16,12 @@ export async function startIdentity(){
+  source.width=target.width=terminal.width=W;source.height=target.height=terminal.height=H;
+  const c=source.getContext('2d'),tc=target.getContext('2d');tc.fillStyle='#0b0c0f';tc.fillRect(0,0,W,H);
+  const renderer=new THREE.WebGLRenderer({canvas,antialias:false,alpha:true,powerPreference:'high-performance'});
++ const isMac=/Mac/i.test(navigator.platform);
+  renderer.setClearColor(0x000000,0);
+  let layoutHeight=H;
+  function resizeBuffers(){
+   layoutHeight=W*innerHeight/innerWidth;
+-  const pixelRatio=Math.min(devicePixelRatio,2),scale=Math.min(2,Math.max(1,innerWidth*pixelRatio/W));
++  const pixelRatio=Math.min(devicePixelRatio,isMac?1.25:2),scale=Math.min(2,Math.max(1,innerWidth*pixelRatio/W));
+   for(const [buffer,pen]of[[source,c],[target,tc],[terminal,terminal.getContext('2d')]]){
+    buffer.width=Math.round(W*scale);buffer.height=Math.round(layoutHeight*scale);pen.setTransform(scale,0,0,scale,0,0);pen.imageSmoothingQuality='high';
+   }
+@@ -30,14 +31,15 @@ export async function startIdentity(){
+  const sourceTex=new THREE.CanvasTexture(source),targetTex=new THREE.CanvasTexture(target),terminalTex=new THREE.CanvasTexture(terminal);
+  for(const texture of [sourceTex,targetTex,terminalTex]){texture.minFilter=THREE.LinearFilter;texture.generateMipmaps=false}
+  const closingPen=terminal.getContext('2d');
+- const uniforms={sourceImage:{value:sourceTex},targetImage:{value:terminalTex},targetIsTerminal:{value:1},progress:{value:0},logoGlitchPhase:{value:0},clock:{value:0},ready:{value:0},handoff:{value:0},ratio:{value:innerWidth/innerHeight},waveOrigin:{value:new THREE.Vector2(.5,.5)}};
++ const uniforms={sourceImage:{value:sourceTex},targetImage:{value:terminalTex},targetIsTerminal:{value:1},progress:{value:0},logoGlitchPhase:{value:0},clock:{value:0},ready:{value:0},handoff:{value:0},ratio:{value:innerWidth/innerHeight},waveOrigin:{value:new THREE.Vector2(.5,.5)},softTransition:{value:isMac?1:0}};
+  const material=new THREE.ShaderMaterial({transparent:true,uniforms,vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}`,fragmentShader:`
+- precision highp float;uniform sampler2D sourceImage,targetImage;uniform float progress,logoGlitchPhase,clock,ready,handoff,ratio,targetIsTerminal;uniform vec2 waveOrigin;varying vec2 vUv;
++ precision highp float;uniform sampler2D sourceImage,targetImage;uniform float progress,logoGlitchPhase,clock,ready,handoff,ratio,targetIsTerminal,softTransition;uniform vec2 waveOrigin;varying vec2 vUv;
+  vec3 readSource(vec2 uv){return texture2D(sourceImage,uv).rgb;}
+  vec3 readTarget(vec2 uv){return texture2D(targetImage,uv).rgb;}
+  float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+  void main(){
+   vec2 uv=vUv;float p=progress;
++  if(softTransition>.5){gl_FragColor=vec4(mix(readSource(uv),readTarget(uv),smoothstep(0.,1.,p)*ready),1.-handoff);return;}
+   // Matrix partitions sample actual source/target pixels; never solid-color tiles.
+   float band=floor(uv.y*108.);float grouping=1.+floor(hash(vec2(band,3.))*3.);
+   vec2 grid=vec2(64./grouping,108.);vec2 id=floor(uv*grid),center=(id+.5)/grid;
+@@ -144,8 +146,7 @@ export async function startIdentity(){
+  function setTarget(bitmap){tc.clearRect(0,0,W,layoutHeight);tc.drawImage(bitmap,0,0,W,layoutHeight);bitmap.close?.();targetTex.needsUpdate=true;targetReady=true;uniforms.ready.value=1;startButton.disabled=interactiveButton.disabled=false;document.getElementById('loadStatus').textContent='工作台已就绪 · 日文清晰系统播报';render(time);if(!autoStarted&&new URLSearchParams(location.search).get('autostart')==='interactive'){autoStarted=true;play(true).catch(error=>{document.getElementById('audioStatus').textContent=error.message})}}
+  window.addEventListener('message',e=>{if(e.origin!==location.origin||e.source!==parent)return;if(e.data?.type==='hackclaw:workbench-snapshot'){codexTarget=e.data.codexTarget||null;linkConnected=!!e.data.connected;setTarget(e.data.bitmap)}if(e.data?.type==='hackclaw:snapshot-error'){snapshotError=e.data.message;document.getElementById('loadStatus').textContent='工作台采样失败，请直接进入后重试';console.error(snapshotError)}});
+  if(parent!==window)parent.postMessage({type:'hackclaw:snapshot-request'},location.origin);else document.getElementById('loadStatus').textContent='请从工作台“身份入口”打开完整预览';
+- function holdTick(){if(!held)return;render(SEQUENCE.hold);frame=requestAnimationFrame(holdTick)}
+- function tick(now){if(!playing||exporting)return;let wall=(now-start)/1000;let t=!audio.paused&&!audio.ended&&audio.currentTime>0?audio.currentTime:wall;if(interactive&&t>=SEQUENCE.hold&&!held){held=true;holdStarted=performance.now();playing=false;audio.pause();audio.currentTime=SEQUENCE.hold;t=SEQUENCE.hold}render(t);if(t>=DURATION-.025){playing=false;window.exitIdentityScene();return}if(playing)frame=requestAnimationFrame(tick);else if(held)frame=requestAnimationFrame(holdTick)}
++ function tick(now){if(!playing||exporting)return;let wall=(now-start)/1000;let t=!audio.paused&&!audio.ended&&audio.currentTime>0?audio.currentTime:wall;if(interactive&&t>=SEQUENCE.hold&&!held){held=true;holdStarted=performance.now();playing=false;audio.pause();audio.currentTime=SEQUENCE.hold;t=SEQUENCE.hold}render(t);if(t>=DURATION-.025){playing=false;window.exitIdentityScene();return}if(playing)frame=requestAnimationFrame(tick)}
+  async function play(mode){if(matchMedia('(prefers-reduced-motion: reduce)').matches){window.exitIdentityScene();return}if(!targetReady)return;interactive=mode;held=false;document.body.classList.add('playing');audio.currentTime=0;start=performance.now();playing=true;if(document.getElementById('identitySound').checked){try{audio.play().catch(()=>{document.getElementById('audioStatus').textContent='声音未能播放 · 当前为静音预览'})}catch{}}frame=requestAnimationFrame(tick)}
+  startButton.onclick=()=>play(false);interactiveButton.onclick=()=>play(true);
+  confirm.onclick=async()=>{if(!held)return;cancelAnimationFrame(frame);confirm.disabled=true;held=false;interactive=false;start=performance.now()-SEQUENCE.hold*1000;render(SEQUENCE.hold);playing=true;if(document.getElementById('identitySound').checked)try{audio.play().catch(()=>{})}catch{}frame=requestAnimationFrame(tick)};

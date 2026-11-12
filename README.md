@@ -5,6 +5,7 @@
 - 保留 EVA 开机动画和号机选择，macOS 的聊天区、侧边栏和原有壁纸不套用 EVA 颜色和覆盖层。
 - 动画退出时立即释放鼠标事件；防卡住的超时保护不会被动画进度消息取消。
 - 在动画中按 Escape 可退出；插件停用时清理动画和装饰层。
+- 初号机在 macOS 上采用平滑切场，降低渲染分辨率；确认画面停留时不再重复绘制。
 
 ## 使用
 
@@ -21,4 +22,4 @@ git apply /path/to/macos.patch
 
 ## 验证范围
 
-针对遮罩退出、iframe 内 Escape、超时保护、插件卸载清理与 macOS 原配色进行浏览器模拟验证，并在 macOS 的 DeepSeek Harness 0.2.2-rc.2 上检查启动画面。修改只影响插件，不更改 DeepSeek Harness 主程序。
+针对遮罩退出、iframe 内 Escape、超时保护、插件卸载清理与 macOS 原配色进行浏览器模拟验证，浏览器中检查初号机动画六个时间点，并在 macOS 的 DeepSeek Harness 0.2.2-rc.2 上检查启动画面。修改只影响插件，不更改 DeepSeek Harness 主程序。
