@@ -1,0 +1,67 @@
+diff --git a/client/client.js b/client/client.js
+index d3a5ce9..fd1c6c9 100644
+--- a/client/client.js
++++ b/client/client.js
+@@ -800,7 +800,8 @@ window.__ModuleLoader__.load({
+     function applyAttr(skin) {
+       var root = document.documentElement;
+       if (!root) return;
+-      if (skin === "off") {
++      /* Keep the user's existing workbench theme on macOS; the intro uses readSkin(). */
++      if (skin === "off" || /Mac/i.test(navigator.platform)) {
+         root.removeAttribute("data-unit02");
+         root.removeAttribute("data-unit02-set");
+       } else {
+@@ -1185,6 +1186,7 @@ window.__ModuleLoader__.load({
+       if (closing.slow) clearTimeout(closing.slow);
+       if (mark) markBootShown();
+       window.removeEventListener("message", closing.onMessage);
++      closing.layer.style.pointerEvents = "none";
+       closing.layer.style.opacity = "0";
+       setTimeout(function () {
+         closing.layer.remove();
+@@ -1233,10 +1235,6 @@ window.__ModuleLoader__.load({
+       state.onMessage = function (event) {
+         if (intro !== state || event.source !== frame.contentWindow) return;
+         var data = event.data || {};
+-        if (state.guard && data.type) {
+-          clearTimeout(state.guard);
+-          state.guard = null;
+-        }
+         if (data.type === "hackclaw:snapshot-request" || data.type === "hackclaw:intro-ready") {
+           sendSnapshot();
+         } else if (data.type === "hackclaw:intro-close") {
+@@ -1255,6 +1253,9 @@ window.__ModuleLoader__.load({
+         try {
+           var doc = frame.contentDocument;
+           if (!doc || !doc.head) return;
++          doc.addEventListener("keydown", function (event) {
++            if (event.key === "Escape" && intro === state) closeIntro(true);
++          });
+           var style = doc.createElement("style");
+           style.textContent = INTRO_CSS;
+           doc.head.append(style);
+@@ -1295,6 +1296,7 @@ window.__ModuleLoader__.load({
+         el.textContent = CSS;
+         document.head.append(el);
+         return function () {
++          closeIntro(false);
+           el.remove();
+         };
+       });
+@@ -1326,6 +1328,7 @@ window.__ModuleLoader__.load({
+         return function () {
+           art.remove();
+           frame.remove();
++          seam.remove();
+           reiArt.remove();
+         };
+       });
+@@ -1346,6 +1349,7 @@ window.__ModuleLoader__.load({
+         var timer = setTimeout(startIntro, 120);
+         return function () {
+           clearTimeout(timer);
++          closeIntro(false);
+         };
+       });
+ 
